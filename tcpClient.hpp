@@ -1,8 +1,7 @@
-#include <iostream>
 #include <WinSock2.h>
 #include <WS2tcpip.h>
-#include <Windows.h>
 #include <iphlpapi.h>
+#include <iostream>
 #include <functional>
 #include <vector>
 
@@ -37,7 +36,6 @@ public:
 		iResult = WSAStartup(MAKEWORD(2, 2), &this->wsaData);
 		if (iResult != 0) {
 			throw std::exception("WSAStartup failed with code " + WSAGetLastError());
-			this->~TCPClient();
 		}
 		this->hints.ai_family = AF_UNSPEC;
 		this->hints.ai_socktype = SOCK_STREAM;
@@ -46,24 +44,20 @@ public:
 		this->iResult = GetAddrInfo(this->hostname.c_str(), this->port.c_str(), &this->hints, &this->info);
 		if (this->iResult != 0) {
 			throw std::exception("GetAddrInfo failed with code " + WSAGetLastError());
-			this->~TCPClient();
 		}
 
 		this->curSocket = socket(this->info->ai_family, this->info->ai_socktype, this->info->ai_protocol);
 		if (this->curSocket == INVALID_SOCKET) {
 			throw std::exception("socket() failed with code " + WSAGetLastError());
-			this->~TCPClient();
 		}
 
 		this->iResult = connect(this->curSocket, this->info->ai_addr, this->info->ai_addrlen);
 		if (this->iResult == SOCKET_ERROR) {
 			throw std::exception("connect() failed with code " + WSAGetLastError());
-			this->~TCPClient();
 		}
 
 		if (sendMessage("helloMessage") == -1) {
 			throw std::exception("send() failed with code " + WSAGetLastError());
-			this->~TCPClient();
 		}
 		this->recieveMessageThreadHandle = CreateThread(nullptr, 0, (LPTHREAD_START_ROUTINE)& bandAid, this, 0, nullptr);
 	}
@@ -83,7 +77,9 @@ private:
 			this->iResult = recv(this->curSocket, (char*)this->recieveBuffer.data(), recieveBuffer.size(), 0);
 			this->messageRecieveEvent(recieveBuffer);
 		} while (this->iResult > 0);
-		this->~TCPClient();
+		if (!iResult)
+			throw std::exception("Connection closed.");
+		else throw std::exception("recv() failed with code " + WSAGetLastError());
 	}
 
 	WSADATA wsaData;
